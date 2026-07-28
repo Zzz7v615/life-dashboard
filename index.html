@@ -11,8 +11,10 @@
 <meta name="apple-mobile-web-app-title" content="人生工作台">
 <meta name="theme-color" content="#0071e3">
 <meta name="description" content="人生管理计划工作台 — 每日计划、记账、运动、心情、读书、旅行、英语学习，一站搞定">
-<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%230071e3'/><stop offset='1' stop-color='%23af52de'/></linearGradient></defs><rect width='180' height='180' rx='40' fill='url(%23g)'/><text x='90' y='120' font-size='90' text-anchor='middle' fill='white'>🌟</text></svg>">
-<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230071e3'/><text x='16' y='23' font-size='20' text-anchor='middle'>🌟</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -1633,6 +1635,47 @@ document.querySelectorAll('.modal-mask').forEach(m => {
 // ---------- 初始渲染 ----------
 Todo.render();
 console.log('✅ 人生管理计划工作台 已启动');
+
+// ---------- PWA: 注册 Service Worker 实现离线可用 ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('✅ Service Worker 已注册（支持离线）');
+    }).catch(err => console.log('SW 注册失败:', err));
+  });
+}
+
+// ---------- PWA: 安装提示（安卓 Chrome 会弹出"安装应用"按钮）----------
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // 显示自定义安装按钮（右下角，AI 浮窗上方）
+  showInstallBtn();
+});
+function showInstallBtn() {
+  if (document.getElementById('pwaInstallBtn')) return;
+  const btn = document.createElement('div');
+  btn.id = 'pwaInstallBtn';
+  btn.style.cssText = 'position:fixed;right:24px;bottom:96px;background:#34c759;color:#fff;padding:10px 16px;border-radius:12px;box-shadow:0 4px 14px rgba(52,199,89,.4);font-size:14px;font-weight:600;z-index:98;cursor:pointer;display:flex;align-items:center;gap:6px;';
+  btn.innerHTML = '📲 安装到桌面';
+  btn.onclick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') toast('✅ 正在安装，请查看桌面');
+    deferredPrompt = null;
+    btn.remove();
+  };
+  document.body.appendChild(btn);
+  // 10 秒后自动隐藏（如果用户不点）
+  setTimeout(() => { if (btn.parentNode) btn.remove(); }, 15000);
+}
+window.addEventListener('appinstalled', () => {
+  toast('🎉 已安装到桌面！');
+  const b = document.getElementById('pwaInstallBtn');
+  if (b) b.remove();
+});
 </script>
 </body>
 </html>

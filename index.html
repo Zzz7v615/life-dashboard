@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>人生管理计划工作台</title>
+<!-- PWA / 移动端添加到主屏幕配置 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="人生工作台">
+<meta name="theme-color" content="#0071e3">
+<meta name="description" content="人生管理计划工作台 — 每日计划、记账、运动、心情、读书、旅行、英语学习，一站搞定">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%230071e3'/><stop offset='1' stop-color='%23af52de'/></linearGradient></defs><rect width='180' height='180' rx='40' fill='url(%23g)'/><text x='90' y='120' font-size='90' text-anchor='middle' fill='white'>🌟</text></svg>">
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230071e3'/><text x='16' y='23' font-size='20' text-anchor='middle'>🌟</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --blue: #0071e3;
+    --green: #34c759;
+    --orange: #ff9500;
+    --pink: #ff375f;
+    --purple: #af52de;
+    --cyan: #5ac8fa;
+    --indigo: #5856d6;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --text-2: #6e6e73;
+    --text-3: #aeaeb2;
+    --border: #e5e5ea;
+    --sidebar-bg: rgba(255,255,255,0.8);
+    --shadow: 0 4px 16px rgba(0,0,0,0.06);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea, select { font-family: inherit; font-size: 15px; color: var(--text); }
+
+  /* ===== Layout ===== */
+  .app { display: flex; height: 100vh; width: 100vw; }
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--sidebar-bg);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+    overflow-y: auto;
+  }
+  .sidebar .logo {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px 18px;
+    font-weight: 700; font-size: 17px;
+    color: var(--text);
+  }
+  .sidebar .logo .dot { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg, var(--blue), var(--purple)); }
+  .nav-list { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--text-2);
+    font-size: 14px; font-weight: 500;
+    transition: all .15s ease;
+    text-align: left;
+  }
+  .nav-item:hover { background: rgba(0,0,0,0.04); color: var(--text); }
+  .nav-item.active { background: var(--blue); color: #fff; }
+  .nav-item .ico { font-size: 16px; width: 22px; text-align: center; }
+  .nav-divider { height: 1px; background: var(--border); margin: 10px 8px; }
+  .nav-section-title { font-size: 11px; color: var(--text-3); padding: 6px 12px 4px; text-transform: uppercase; letter-spacing: .5px; }
+
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 36px 120px;
+    padding-top: max(28px, env(safe-area-inset-top));
+    padding-bottom: max(120px, env(safe-area-inset-bottom));
+    scroll-behavior: smooth;
+  }
+  .page { display: none; max-width: 980px; margin: 0 auto; }
+  .page.active { display: block; animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .page-header { margin-bottom: 22px; }
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.3px; }
+  .page-sub { color: var(--text-2); font-size: 14px; margin-top: 4px; }
+
+  /* ===== Cards / common ===== */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title { font-size: 16px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .main { padding: 20px 18px 120px; } .sidebar { width: 64px; } .sidebar .logo span, .nav-item span:not(.ico) { display: none; } }
+
+  /* ===== Stat cards ===== */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+  }
+  .stat-card .label { font-size: 12px; color: var(--text-2); }
+  .stat-card .value { font-size: 24px; font-weight: 700; margin-top: 4px; letter-spacing: -0.5px; }
+  .stat-card .value .unit { font-size: 13px; font-weight: 500; color: var(--text-2); margin-left: 3px; }
+  .stat-card.accent-blue .value { color: var(--blue); }
+  .stat-card.accent-green .value { color: var(--green); }
+  .stat-card.accent-orange .value { color: var(--orange); }
+  .stat-card.accent-pink .value { color: var(--pink); }
+  .stat-card.accent-purple .value { color: var(--purple); }
+
+  /* ===== Inputs ===== */
+  .input, .select, textarea.input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    outline: none;
+    transition: border .15s, box-shadow .15s;
+  }
+  .input:focus, .select:focus, textarea.input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,113,227,.12); }
+  textarea.input { resize: vertical; min-height: 70px; }
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .form-row .input, .form-row .select { flex: 1; min-width: 0; }
+  .form-row .input.fixed { flex: 0 0 auto; width: auto; }
+
+  .btn {
+    padding: 9px 16px;
+    border-radius: 10px;
+    background: var(--blue);
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:hover { opacity: .88; }
+  .btn:active { transform: scale(.97); }
+  .btn.sec { background: var(--border); color: var(--text); }
+  .btn.green { background: var(--green); }
+  .btn.orange { background: var(--orange); }
+  .btn.small { padding: 5px 10px; font-size: 12px; }
+
+  /* ===== Todo ===== */
+  .priority-tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 600; }
+  .priority-high { background: rgba(255,55,95,.12); color: var(--pink); }
+  .priority-mid { background: rgba(255,149,0,.14); color: var(--orange); }
+  .priority-low { background: rgba(52,199,89,.14); color: var(--green); }
+  .todo-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: #fff;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    margin-bottom: 8px;
+    transition: background .15s;
+  }
+  .todo-item.done { opacity: .5; }
+  .todo-item.done .todo-text { text-decoration: line-through; }
+  .checkbox {
+    width: 22px; height: 22px;
+    border: 2px solid var(--border);
+    border-radius: 7px;
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .checkbox.checked { background: var(--green); border-color: var(--green); }
+  .checkbox.checked::after { content: "✓"; color: #fff; font-size: 14px; font-weight: 700; }
+  .todo-text { flex: 1; }
+  .todo-meta { display: flex; gap: 8px; align-items: center; }
+  .progress-bar {
+    height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 14px;
+  }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width .4s ease; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); margin-top: 6px; }
+
+  /* ===== Money ===== */
+  .money-list-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .money-list-item:last-child { border-bottom: none; }
+  .money-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .money-amount.in { color: var(--green); font-weight: 600; }
+  .money-amount.out { color: var(--pink); font-weight: 600; }
+
+  /* ===== Sports heatmap ===== */
+  .heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 12px; }
+  .heat-cell {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: #efeff4;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 11px;
+    transition: transform .1s;
+  }
+  .heat-cell:hover { transform: scale(1.05); }
+  .heat-cell.l1 { background: rgba(52,199,89,.25); }
+  .heat-cell.l2 { background: rgba(52,199,89,.5); }
+  .heat-cell.l3 { background: rgba(52,199,89,.75); }
+  .heat-cell.l4 { background: var(--green); color: #fff; }
+  .heat-cell .day { font-size: 10px; color: var(--text-3); }
+  .heat-cell.l4 .day { color: rgba(255,255,255,.85); }
+  .heat-cell .val { font-weight: 700; }
+
+  .sport-btn {
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    font-size: 13px;
+    transition: all .15s;
+  }
+  .sport-btn.sel { border-color: var(--green); background: rgba(52,199,89,.1); color: var(--green); }
+
+  /* ===== Mood ===== */
+  .mood-emoji {
+    font-size: 26px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    transition: all .15s;
+  }
+  .mood-emoji.sel { border-color: var(--purple); background: rgba(175,82,222,.1); transform: scale(1.1); }
+
+  /* ===== Books ===== */
+  .book-item {
+    background: #fff;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .book-item .b-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .book-item .b-title { font-weight: 600; }
+  .book-item .b-author { font-size: 12px; color: var(--text-2); }
+  .book-progress { height: 6px; background: var(--border); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .book-progress .fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width .4s; }
+  .book-note { font-size: 13px; color: var(--text-2); margin-top: 8px; white-space: pre-wrap; }
+
+  /* ===== Travel ===== */
+  .pack-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .pack-item:last-child { border-bottom: none; }
+  .pack-item .checkbox { width: 18px; height: 18px; border-radius: 5px; }
+  .pack-item.done .pack-name { text-decoration: line-through; color: var(--text-3); }
+  .itinerary-item { padding: 8px 12px; background: #f9f9fb; border-radius: 8px; margin-bottom: 6px; font-size: 14px; }
+
+  /* ===== English word card (flip) ===== */
+  .word-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 22px;
+    min-height: 130px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    cursor: pointer;
+    perspective: 800px;
+    position: relative;
+    transition: transform .15s;
+  }
+  .word-card:hover { transform: translateY(-2px); }
+  .word-card .w-en { font-size: 22px; font-weight: 700; }
+  .word-card .w-phon { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  .word-card .w-zh { font-size: 17px; color: var(--blue); margin-top: 10px; display: none; }
+  .word-card.flipped .w-en, .word-card.flipped .w-phon { display: none; }
+  .word-card.flipped .w-zh { display: block; }
+  .word-card .hint { font-size: 11px; color: var(--text-3); margin-top: 12px; }
+  .word-list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+  }
+  .word-list-item:last-child { border-bottom: none; }
+
+  /* ===== AI float button ===== */
+  .ai-fab {
+    position: fixed;
+    right: 24px; bottom: 24px;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    box-shadow: 0 6px 20px rgba(0,113,227,.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    z-index: 100;
+    transition: transform .2s;
+  }
+  .ai-fab:hover { transform: scale(1.08); }
+  .ai-panel {
+    position: fixed;
+    right: 24px; bottom: 92px;
+    width: 340px;
+    max-width: calc(100vw - 48px);
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 16px;
+    z-index: 99;
+    display: none;
+  }
+  .ai-panel.open { display: block; animation: fadeIn .2s; }
+  .ai-panel h4 { font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .ai-panel textarea { width: 100%; min-height: 70px; margin-bottom: 8px; }
+  .ai-panel .examples { font-size: 12px; color: var(--text-2); margin-top: 8px; }
+  .ai-panel .ex-chip {
+    display: inline-block;
+    padding: 3px 8px;
+    margin: 3px 3px 0 0;
+    border-radius: 6px;
+    background: #f0f0f5;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .ai-panel .ex-chip:hover { background: #e5e5ea; }
+
+  /* ===== Modal ===== */
+  .modal-mask {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.35);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-mask.open { display: flex; animation: fadeIn .2s; }
+  .modal {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    width: 100%; max-width: 720px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 24px;
+  }
+  .modal h3 { font-size: 20px; margin-bottom: 16px; }
+  .modal-close {
+    float: right;
+    font-size: 22px; color: var(--text-3);
+    line-height: 1;
+  }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    left: 50%; bottom: 30px;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.82);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    z-index: 300;
+    opacity: 0;
+    transition: opacity .25s, transform .25s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+  /* ===== Weekly analysis ===== */
+  .wa-section { margin-bottom: 18px; }
+  .wa-section h4 { font-size: 14px; color: var(--text-2); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .wa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; }
+  .wa-card { background: #f9f9fb; border-radius: 12px; padding: 12px; }
+  .wa-card .l { font-size: 11px; color: var(--text-2); }
+  .wa-card .v { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .insight-box {
+    background: linear-gradient(135deg, rgba(0,113,227,.08), rgba(175,82,222,.08));
+    border-radius: 14px;
+    padding: 16px;
+    margin-top: 8px;
+  }
+  .insight-box h4 { color: var(--purple); }
+  .insight-box p { font-size: 13px; color: var(--text); margin-top: 6px; line-height: 1.6; }
+
+  .empty { color: var(--text-3); font-size: 14px; text-align: center; padding: 24px; }
+  .section-tip { font-size: 12px; color: var(--text-2); margin-bottom: 10px; }
+  .tag-list { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: #f0f0f5; color: var(--text-2); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===== Sidebar ===== -->
+  <aside class="sidebar">
+    <div class="logo"><div class="dot"></div><span>人生工作台</span></div>
+    <nav class="nav-list" id="navList">
+      <button class="nav-item active" data-page="todo"><span class="ico">✅</span><span>每日计划</span></button>
+      <button class="nav-item" data-page="money"><span class="ico">💰</span><span>记账本</span></button>
+      <button class="nav-item" data-page="sport"><span class="ico">🏃</span><span>运动打卡</span></button>
+      <button class="nav-item" data-page="mood"><span class="ico">😊</span><span>心情日记</span></button>
+      <button class="nav-item" data-page="book"><span class="ico">📚</span><span>读书收获</span></button>
+      <button class="nav-item" data-page="travel"><span class="ico">✈️</span><span>旅行计划</span></button>
+      <button class="nav-item" data-page="english"><span class="ico">🔤</span><span>英语学习</span></button>
+      <div class="nav-divider"></div>
+      <div class="nav-section-title">工具</div>
+      <button class="nav-item" id="btnWeekly"><span class="ico">📊</span><span>周度数据分析</span></button>
+      <button class="nav-item" id="btnExport"><span class="ico">⬆️</span><span>导出备份</span></button>
+      <button class="nav-item" id="btnImport"><span class="ico">⬇️</span><span>导入备份</span></button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </nav>
+  </aside>
+
+  <!-- ===== Main content ===== -->
+  <main class="main" id="main">
+
+    <!-- ===== 1. 每日计划 ===== -->
+    <section class="page active" id="page-todo">
+      <div class="page-header">
+        <div class="page-title">每日计划</div>
+        <div class="page-sub" id="todoDate"></div>
+      </div>
+      <div class="card">
+        <div class="form-row">
+          <input class="input" id="todoInput" placeholder="添加待办事项..." onkeydown="if(event.key==='Enter')Todo.add()">
+          <select class="select fixed" id="todoPri" style="width:90px">
+            <option value="high">🔴 高</option>
+            <option value="mid" selected>🟠 中</option>
+            <option value="low">🟢 低</option>
+          </select>
+          <button class="btn" onclick="Todo.add()">添加</button>
+        </div>
+        <div id="todoList"></div>
+        <div class="progress-bar"><div class="progress-fill" id="todoProgress" style="width:0%"></div></div>
+        <div class="progress-label"><span>今日完成率</span><span id="todoRate">0%</span></div>
+      </div>
+    </section>
+
+    <!-- ===== 2. 记账本 ===== -->
+    <section class="page" id="page-money">
+      <div class="page-header">
+        <div class="page-title">记账本</div>
+        <div class="page-sub" id="moneyMonth"></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card accent-green"><div class="label">本月收入</div><div class="value" id="mIncome">¥0</div></div>
+        <div class="stat-card accent-pink"><div class="label">本月支出</div><div class="value" id="mExpense">¥0</div></div>
+        <div class="stat-card accent-blue"><div class="label">本月结余</div><div class="value" id="mBalance">¥0</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">➕ 记一笔</div>
+          <div class="form-row">
+            <select class="select" id="moneyType" onchange="Money.updateCats()">
+              <option value="out">支出</option>
+              <option value="in">收入</option>
+            </select>
+            <select class="select" id="moneyCat"></select>
+          </div>
+          <div class="form-row">
+            <input class="input" id="moneyAmount" type="number" placeholder="金额" min="0" step="0.01">
+            <input class="input" id="moneyNote" placeholder="备注（可选）">
+            <button class="btn" onclick="Money.add()">记一笔</button>
+          </div>
+          <div style="margin-top:14px;max-height:240px;overflow-y:auto" id="moneyList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📊 支出分类占比</div>
+          <div style="position:relative;height:260px"><canvas id="moneyChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 3. 运动打卡 ===== -->
+    <section class="page" id="page-sport">
+      <div class="page-header">
+        <div class="page-title">运动打卡</div>
+        <div class="page-sub">坚持就是胜利</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card accent-orange"><div class="label">连续打卡</div><div class="value" id="sStreak">0<span class="unit">天</span></div></div>
+        <div class="stat-card accent-green"><div class="label">本周打卡</div><div class="value" id="sWeekCount">0<span class="unit">次</span></div></div>
+        <div class="stat-card accent-pink"><div class="label">本周消耗</div><div class="value" id="sWeekCal">0<span class="unit">千卡</span></div></div>
+        <div class="stat-card accent-blue"><div class="label">本周时长</div><div class="value" id="sWeekDur">0<span class="unit">分钟</span></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">✏️ 打卡记录</div>
+        <div class="section-tip">选择运动类型：</div>
+        <div class="tag-list" id="sportTags" style="margin-bottom:14px"></div>
+        <div class="form-row">
+          <input class="input" id="sportDur" type="number" placeholder="时长（分钟）" min="0" style="max-width:140px">
+          <input class="input" id="sportCal" type="number" placeholder="消耗（千卡）" min="0" style="max-width:140px">
+          <button class="btn green" onclick="Sport.add()">打卡</button>
+        </div>
+        <div class="card-title" style="margin-top:14px">🔥 本周打卡热力图</div>
+        <div class="heatmap" id="sportHeat"></div>
+        <div style="margin-top:14px;max-height:240px;overflow-y:auto" id="sportList"></div>
+      </div>
+    </section>
+
+    <!-- ===== 4. 心情日记 ===== -->
+    <section class="page" id="page-mood">
+      <div class="page-header">
+        <div class="page-title">心情日记</div>
+        <div class="page-sub">记录情绪，看见自己</div>
+      </div>
+      <div class="card">
+        <div class="card-title">✏️ 今天心情如何？</div>
+        <div class="tag-list" id="moodPicker" style="margin-bottom:14px"></div>
+        <textarea class="input" id="moodText" placeholder="写下今天的故事..."></textarea>
+        <div style="margin-top:10px;text-align:right"><button class="btn" style="background:var(--purple)" onclick="Mood.save()">保存日记</button></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📈 本周心情趋势</div>
+        <div style="position:relative;height:240px"><canvas id="moodChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📖 历史日记</div>
+        <div id="moodList" style="max-height:300px;overflow-y:auto"></div>
+      </div>
+    </section>
+
+    <!-- ===== 5. 读书收获 ===== -->
+    <section class="page" id="page-book">
+      <div class="page-header">
+        <div class="page-title">读书收获</div>
+        <div class="page-sub">读过的书，都是走过的路</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card accent-blue"><div class="label">已读书籍</div><div class="value" id="bCount">0<span class="unit">本</span></div></div>
+        <div class="stat-card accent-green"><div class="label">在阅读</div><div class="value" id="bReading">0<span class="unit">本</span></div></div>
+        <div class="stat-card accent-purple"><div class="label">总页数</div><div class="value" id="bPages">0<span class="unit">页</span></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">➕ 添加书籍</div>
+        <div class="form-row">
+          <input class="input" id="bookTitle" placeholder="书名">
+          <input class="input" id="bookAuthor" placeholder="作者" style="max-width:180px">
+          <input class="input" id="bookPages" type="number" placeholder="总页数" min="0" style="max-width:110px">
+          <button class="btn" onclick="Book.add()">添加</button>
+        </div>
+      </div>
+      <div id="bookList"></div>
+    </section>
+
+    <!-- ===== 6. 旅行计划 ===== -->
+    <section class="page" id="page-travel">
+      <div class="page-header">
+        <div class="page-title">旅行计划</div>
+        <div class="page-sub">世界那么大，去看看</div>
+      </div>
+      <div class="card">
+        <div class="card-title">➕ 创建旅行计划</div>
+        <div class="form-row">
+          <input class="input" id="travelDest" placeholder="目的地（如：日本京都）">
+          <input class="input" id="travelDate" type="date" style="max-width:170px">
+          <button class="btn" style="background:var(--cyan);color:#fff" onclick="Travel.add()">创建</button>
+        </div>
+      </div>
+      <div id="travelList"></div>
+    </section>
+
+    <!-- ===== 7. 英语学习 ===== -->
+    <section class="page" id="page-english">
+      <div class="page-header">
+        <div class="page-title">英语学习</div>
+        <div class="page-sub">一天一个词，词汇量稳步涨</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card accent-purple"><div class="label">累计词汇</div><div class="value" id="eTotal">0</div></div>
+        <div class="stat-card accent-green"><div class="label">今日学习</div><div class="value" id="eToday">0</div></div>
+        <div class="stat-card accent-orange"><div class="label">待复习</div><div class="value" id="eReview">0</div></div>
+        <div class="stat-card accent-blue"><div class="label">每日目标</div><div class="value" id="eGoal">10</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">➕ 添加单词</div>
+        <div class="form-row">
+          <input class="input" id="wEn" placeholder="英文（如：abandon）">
+          <input class="input" id="wPhon" placeholder="音标（如：/əˈbændən/）">
+          <input class="input" id="wZh" placeholder="中文释义（如：放弃）">
+          <button class="btn" style="background:var(--indigo)" onclick="English.add()">添加</button>
+        </div>
+        <div class="form-row">
+          <label style="font-size:13px;color:var(--text-2)">每日目标：</label>
+          <input class="input" id="wGoal" type="number" min="1" value="10" style="max-width:80px">
+          <button class="btn sec small" onclick="English.setGoal()">设置</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎴 单词卡片（点击翻转）</div>
+        <div class="word-card" id="wordCard" onclick="English.flip()">
+          <div class="w-en" id="wcEn">— 暂无单词 —</div>
+          <div class="w-phon" id="wcPhon"></div>
+          <div class="w-zh" id="wcZh"></div>
+          <div class="hint" id="wcHint">点击卡片查看释义</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;justify-content:center">
+          <button class="btn sec small" onclick="English.prev()">上一个</button>
+          <button class="btn small" style="background:var(--green)" onclick="English.markKnown()">已掌握</button>
+          <button class="btn sec small" onclick="English.next()">下一个</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📊 本周学习趋势</div>
+          <div style="position:relative;height:200px"><canvas id="engChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📝 词汇列表</div>
+          <div id="wordList" style="max-height:200px;overflow-y:auto"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===== AI float ===== -->
+<div class="ai-fab" id="aiFab" onclick="AI.toggle()">🤖</div>
+<div class="ai-panel" id="aiPanel">
+  <h4>🤖 AI 智能识别</h4>
+  <textarea class="input" id="aiInput" placeholder='用中文描述，如："跑步30分钟耗300千卡"、"花了50吃午饭"、"心情很好今天完成了项目"...'></textarea>
+  <div style="display:flex;gap:8px">
+    <button class="btn" onclick="AI.parse()" style="flex:1">识别并写入</button>
+    <button class="btn sec" onclick="AI.toggle()">关闭</button>
+  </div>
+  <div class="examples">
+    <div style="margin-bottom:4px">示例：</div>
+    <span class="ex-chip" onclick="AI.fill('跑步30分钟消耗300千卡')">跑步30分钟</span>
+    <span class="ex-chip" onclick="AI.fill('午餐花了35块')">午餐35元</span>
+    <span class="ex-chip" onclick="AI.fill('工资到账8000')">收入8000</span>
+    <span class="ex-chip" onclick="AI.fill('心情很好')">心情很好</span>
+    <span class="ex-chip" onclick="AI.fill('读《活着》20页')">读书20页</span>
+    <span class="ex-chip" onclick="AI.fill('背单词 abandon 放弃')">背单词</span>
+  </div>
+</div>
+
+<!-- ===== Weekly Analysis Modal ===== -->
+<div class="modal-mask" id="weeklyMask">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('weeklyMask')">×</button>
+    <h3>📊 本周数据分析</h3>
+    <div id="weeklyContent"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================================================================
+   人生管理计划工作台 - 主脚本
+   数据结构：localStorage "life_dashboard" -> { todos, money, sports, moods, books, travels, english, meta }
+   ================================================================= */
+
+const STORE_KEY = 'life_dashboard_v1';
+
+// ---------- Storage ----------
+const DB = {
+  data: null,
+  load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      this.data = raw ? JSON.parse(raw) : null;
+    } catch(e) { this.data = null; }
+    if (!this.data) {
+      this.data = {
+        todos: [],        // {id, text, pri, done, date}
+        money: [],        // {id, type, cat, amount, note, date}
+        sports: [],       // {id, sport, dur, cal, date}
+        moods: [],        // {id, mood, text, date}
+        books: [],        // {id, title, author, pages, read, note}
+        travels: [],      // {id, dest, date, itinerary:[], pack:[{name,done}]}
+        english: { words: [], goal: 10 },  // words:{id,en,phon,zh,known,addDate}
+        meta: { engGoal: 10 }
+      };
+    }
+    if (!this.data.english) this.data.english = { words: [], goal: 10 };
+    return this.data;
+  },
+  save() {
+    localStorage.setItem(STORE_KEY, JSON.stringify(this.data));
+  },
+  uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+};
+DB.load();
+
+// ---------- Utils ----------
+function $(id) { return document.getElementById(id); }
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function fmtDate(d) {
+  const x = new Date(d);
+  return `${x.getMonth()+1}月${x.getDate()}日`;
+}
+function fmtFull(d) {
+  const x = new Date(d);
+  const w = ['日','一','二','三','四','五','六'][x.getDay()];
+  return `${x.getFullYear()}年${x.getMonth()+1}月${x.getDate()}日 周${w}`;
+}
+function startOfWeek() {
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  const day = d.getDay() || 7; // 周日=7
+  d.setDate(d.getDate() - day + 1);
+  return d;
+}
+function weekDates() {
+  const start = startOfWeek();
+  const arr = [];
+  for (let i=0;i<7;i++) {
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    arr.push(d.toISOString().slice(0,10));
+  }
+  return arr;
+}
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function openModal(id) { $(id).classList.add('open'); }
+function closeModal(id) { $(id).classList.remove('open'); }
+
+// ---------- Nav ----------
+document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => switchPage(btn.dataset.page));
+});
+function switchPage(name) {
+  document.querySelectorAll('.nav-item[data-page]').forEach(b => b.classList.toggle('active', b.dataset.page === name));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
+  // 触发渲染
+  const mod = {todo:Todo, money:Money, sport:Sport, mood:Mood, book:Book, travel:Travel, english:English}[name];
+  if (mod && mod.render) mod.render();
+}
+
+/* =================================================================
+   1. Todo 每日计划
+   ================================================================= */
+const Todo = {
+  add() {
+    const input = $('todoInput');
+    const text = input.value.trim();
+    if (!text) { toast('请输入待办内容'); return; }
+    DB.data.todos.push({
+      id: DB.uid(), text, pri: $('todoPri').value, done: false, date: todayStr()
+    });
+    input.value = '';
+    DB.save();
+    this.render();
+    toast('已添加待办');
+  },
+  toggle(id) {
+    const t = DB.data.todos.find(x => x.id === id);
+    if (t) { t.done = !t.done; DB.save(); this.render(); }
+  },
+  del(id) {
+    DB.data.todos = DB.data.todos.filter(x => x.id !== id);
+    DB.save(); this.render();
+  },
+  render() {
+    $('todoDate').textContent = fmtFull(new Date());
+    const today = todayStr();
+    const list = DB.data.todos.filter(t => t.date === today);
+    const container = $('todoList');
+    if (!list.length) {
+      container.innerHTML = '<div class="empty">今天还没有待办，去添加一个吧～</div>';
+    } else {
+      const order = { high: 0, mid: 1, low: 2 };
+      list.sort((a,b) => order[a.pri] - order[b.pri]);
+      container.innerHTML = list.map(t => `
+        <div class="todo-item ${t.done?'done':''}">
+          <div class="checkbox ${t.done?'checked':''}" onclick="Todo.toggle('${t.id}')"></div>
+          <div class="todo-text">${escapeHtml(t.text)}</div>
+          <div class="todo-meta">
+            <span class="priority-tag priority-${t.pri}">${{high:'高',mid:'中',low:'低'}[t.pri]}</span>
+            <button class="btn sec small" onclick="Todo.del('${t.id}')">删</button>
+          </div>
+        </div>`).join('');
+    }
+    const total = list.length;
+    const done = list.filter(t => t.done).length;
+    const rate = total ? Math.round(done/total*100) : 0;
+    $('todoProgress').style.width = rate + '%';
+    $('todoRate').textContent = rate + '%';
+  }
+};
+
+/* =================================================================
+   2. Money 记账本
+   ================================================================= */
+const Money = {
+  cats: {
+    out: ['餐饮','交通','购物','娱乐','住房','医疗','教育','理财','其他'],
+    in: ['工资','理财','其他']
+  },
+  colors: {'餐饮':'#ff9500','交通':'#5ac8fa','购物':'#ff375f','娱乐':'#af52de','住房':'#0071e3','医疗':'#ff375f','教育':'#5856d6','理财':'#34c759','其他':'#8e8e93','工资':'#34c759'},
+  updateCats() {
+    const type = $('moneyType').value;
+    $('moneyCat').innerHTML = this.cats[type].map(c => `<option value="${c}">${c}</option>`).join('');
+  },
+  add() {
+    const amt = parseFloat($('moneyAmount').value);
+    if (!amt || amt <= 0) { toast('请输入金额'); return; }
+    DB.data.money.push({
+      id: DB.uid(),
+      type: $('moneyType').value,
+      cat: $('moneyCat').value,
+      amount: amt,
+      note: $('moneyNote').value.trim(),
+      date: todayStr()
+    });
+    $('moneyAmount').value = '';
+    $('moneyNote').value = '';
+    DB.save();
+    this.render();
+    toast('已记账');
+  },
+  del(id) {
+    DB.data.money = DB.data.money.filter(x => x.id !== id);
+    DB.save(); this.render();
+  },
+  render() {
+    this.updateCats();
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    $('moneyMonth').textContent = `${now.getFullYear()}年${now.getMonth()+1}月`;
+    const monthData = DB.data.money.filter(m => m.date.startsWith(ym));
+    let inc = 0, exp = 0;
+    monthData.forEach(m => m.type === 'in' ? inc += m.amount : exp += m.amount);
+    $('mIncome').textContent = '¥' + inc.toFixed(0);
+    $('mExpense').textContent = '¥' + exp.toFixed(0);
+    $('mBalance').textContent = '¥' + (inc - exp).toFixed(0);
+    // list
+    const list = $('moneyList');
+    const sorted = [...monthData].sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0,20);
+    if (!sorted.length) list.innerHTML = '<div class="empty">本月还没有记录</div>';
+    else list.innerHTML = sorted.map(m => `
+      <div class="money-list-item">
+        <div class="money-cat-dot" style="background:${this.colors[m.cat]||'#888'}"></div>
+        <div style="flex:1">
+          <div style="font-weight:500">${m.cat}${m.note?' · '+escapeHtml(m.note):''}</div>
+          <div style="font-size:12px;color:var(--text-2)">${fmtDate(m.date)}</div>
+        </div>
+        <div class="money-amount ${m.type}">${m.type==='in'?'+':'-'}¥${m.amount.toFixed(0)}</div>
+        <button class="btn sec small" onclick="Money.del('${m.id}')">删</button>
+      </div>`).join('');
+    // chart
+    this.renderChart(monthData);
+  },
+  chart: null,
+  renderChart(monthData) {
+    const cats = this.cats.out;
+    const sums = {};
+    monthData.filter(m => m.type === 'out').forEach(m => sums[m.cat] = (sums[m.cat]||0) + m.amount);
+    const labels = Object.keys(sums);
+    const data = labels.map(l => sums[l]);
+    const colors = labels.map(l => this.colors[l] || '#888');
+    if (this.chart) this.chart.destroy();
+    const ctx = $('moneyChart').getContext('2d');
+    this.chart = new Chart(ctx, {
+      type: 'pie',
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 12 }, padding: 10 } },
+          tooltip: { callbacks: { label: c => `${c.label}: ¥${c.parsed.toFixed(0)}` } }
+        }
+      }
+    });
+  }
+};
+
+/* =================================================================
+   3. Sport 运动打卡
+   ================================================================= */
+const Sport = {
+  types: ['跑步','游泳','健身','骑行','瑜伽','篮球','跳绳','散步'],
+  selected: '跑步',
+  add() {
+    const dur = parseInt($('sportDur').value);
+    const cal = parseInt($('sportCal').value);
+    if (!dur && !cal) { toast('请输入时长或卡路里'); return; }
+    DB.data.sports.push({
+      id: DB.uid(), sport: this.selected,
+      dur: dur||0, cal: cal||0, date: todayStr()
+    });
+    $('sportDur').value = '';
+    $('sportCal').value = '';
+    DB.save();
+    this.render();
+    toast('打卡成功！');
+  },
+  del(id) {
+    DB.data.sports = DB.data.sports.filter(x => x.id !== id);
+    DB.save(); this.render();
+  },
+  render() {
+    // sport tags
+    $('sportTags').innerHTML = this.types.map(s =>
+      `<button class="sport-btn ${s===this.selected?'sel':''}" onclick="Sport.sel('${s}')">${s}</button>`).join('');
+    // stats
+    const wDates = weekDates();
+    const wSports = DB.data.sports.filter(s => wDates.includes(s.date));
+    $('sWeekCount').innerHTML = wSports.length + '<span class="unit">次</span>';
+    $('sWeekCal').innerHTML = wSports.reduce((a,b)=>a+b.cal,0) + '<span class="unit">千卡</span>';
+    $('sWeekDur').innerHTML = wSports.reduce((a,b)=>a+b.dur,0) + '<span class="unit">分钟</span>';
+    // streak
+    let streak = 0;
+    const today = new Date();
+    for (let i=0;i<365;i++) {
+      const d = new Date(today); d.setDate(today.getDate()-i);
+      const ds = d.toISOString().slice(0,10);
+      if (DB.data.sports.some(s => s.date === ds)) {
+        if (i === 0 || streak > 0) streak++;
+        else { streak = 1; }
+      } else if (i > 0) break;
+    }
+    $('sStreak').innerHTML = streak + '<span class="unit">天</span>';
+    // heatmap
+    const dayLabels = ['一','二','三','四','五','六','日'];
+    $('sportHeat').innerHTML = wDates.map((d,i) => {
+      const items = DB.data.sports.filter(s => s.date === d);
+      const cnt = items.length;
+      const lvl = cnt === 0 ? '' : (cnt === 1 ? 'l1' : cnt === 2 ? 'l2' : cnt === 3 ? 'l3' : 'l4');
+      return `<div class="heat-cell ${lvl}"><div class="day">${dayLabels[i]}</div><div class="val">${cnt||''}</div></div>`;
+    }).join('');
+    // list
+    const sorted = [...DB.data.sports].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,15);
+    const list = $('sportList');
+    if (!sorted.length) list.innerHTML = '<div class="empty">还没有打卡记录</div>';
+    else list.innerHTML = sorted.map(s => `
+      <div class="money-list-item">
+        <div style="font-size:18px">${this.icon(s.sport)}</div>
+        <div style="flex:1">
+          <div style="font-weight:500">${s.sport}</div>
+          <div style="font-size:12px;color:var(--text-2)">${fmtDate(s.date)} · ${s.dur}分钟 · ${s.cal}千卡</div>
+        </div>
+        <button class="btn sec small" onclick="Sport.del('${s.id}')">删</button>
+      </div>`).join('');
+  },
+  icon(sport) {
+    return {'跑步':'🏃','游泳':'🏊','健身':'💪','骑行':'🚴','瑜伽':'🧘','篮球':'🏀','跳绳':'🪢','散步':'🚶'}[sport] || '🏅';
+  },
+  sel(s) { this.selected = s; this.render(); }
+};
+
+/* =================================================================
+   4. Mood 心情日记
+   ================================================================= */
+const Mood = {
+  moods: [
+    { key:'😊', name:'开心', val:5 },
+    { key:'😐', name:'一般', val:3 },
+    { key:'😔', name:'低落', val:2 },
+    { key:'😡', name:'生气', val:1 },
+    { key:'😴', name:'疲惫', val:2 },
+    { key:'🥺', name:'委屈', val:1 }
+  ],
+  selected: '😊',
+  pick(k) { this.selected = k; this.renderPicker(); },
+  renderPicker() {
+    $('moodPicker').innerHTML = this.moods.map(m =>
+      `<button class="mood-emoji ${m.key===this.selected?'sel':''}" onclick="Mood.pick('${m.key}')">${m.key}</button>`).join('');
+  },
+  save() {
+    const text = $('moodText').value.trim();
+    const today = todayStr();
+    // 替换今日的
+    DB.data.moods = DB.data.moods.filter(m => m.date !== today);
+    DB.data.moods.push({ id: DB.uid(), mood: this.selected, text, date: today });
+    $('moodText').value = '';
+    DB.save();
+    this.render();
+    toast('日记已保存');
+  },
+  del(id) {
+    DB.data.moods = DB.data.moods.filter(x => x.id !== id);
+    DB.save(); this.render();
+  },
+  render() {
+    this.renderPicker();
+    // load today's
+    const today = todayStr();
+    const todayMood = DB.data.moods.find(m => m.date === today);
+    if (todayMood) {
+      this.selected = todayMood.mood;
+      this.renderPicker();
+      $('moodText').value = todayMood.text || '';
+    }
+    // chart
+    const wDates = weekDates();
+    const data = wDates.map(d => {
+      const m = DB.data.moods.find(x => x.date === d);
+      if (!m) return null;
+      const cfg = this.moods.find(x => x.key === m.mood);
+      return cfg ? cfg.val : null;
+    });
+    if (this.chart) this.chart.destroy();
+    const ctx = $('moodChart').getContext('2d');
+    this.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['一','二','三','四','五','六','日'],
+        datasets: [{
+          label: '心情指数',
+          data,
+          borderColor: '#af52de',
+          backgroundColor: 'rgba(175,82,222,.15)',
+          fill: true,
+          spanGaps: true,
+          tension: .4,
+          pointBackgroundColor: '#af52de',
+          pointRadius: 5
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+    // list
+    const sorted = [...DB.data.moods].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+    const list = $('moodList');
+    if (!sorted.length) list.innerHTML = '<div class="empty">还没有日记</div>';
+    else list.innerHTML = sorted.map(m => `
+      <div class="money-list-item">
+        <div style="font-size:22px">${m.mood}</div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--text-2)">${fmtDate(m.date)}</div>
+          <div style="font-size:13px;margin-top:2px;white-space:pre-wrap">${escapeHtml(m.text || '（无文字）')}</div>
+        </div>
+        <button class="btn sec small" onclick="Mood.del('${m.id}')">删</button>
+      </div>`).join('');
+  }
+};
+
+/* =================================================================
+   5. Book 读书
+   ================================================================= */
+const Book = {
+  add() {
+    const title = $('bookTitle').value.trim();
+    const author = $('bookAuthor').value.trim();
+    const pages = parseInt($('bookPages').value);
+    if (!title) { toast('请输入书名'); return; }
+    DB.data.books.push({
+      id: DB.uid(), title, author, pages: pages||0, read: 0, note: ''
+    });
+    $('bookTitle').value = '';
+    $('bookAuthor').value = '';
+    $('bookPages').value = '';
+    DB.save();
+    this.render();
+    toast('书籍已添加');
+  },
+  update(id, field, val) {
+    const b = DB.data.books.find(x => x.id === id);
+    if (!b) return;
+    if (field === 'read') {
+      b.read = Math.min(parseInt(val)||0, b.pages);
+    } else if (field === 'note') {
+      b.note = val;
+    }
+    DB.save();
+    this.render();
+  },
+  del(id) {
+    DB.data.books = DB.data.books.filter(x => x.id !== id);
+    DB.save(); this.render();
+  },
+  render() {
+    $('bCount').innerHTML = DB.data.books.filter(b => b.pages && b.read >= b.pages).length + '<span class="unit">本</span>';
+    $('bReading').innerHTML = DB.data.books.filter(b => b.read < b.pages).length + '<span class="unit">本</span>';
+    $('bPages').innerHTML = DB.data.books.reduce((a,b)=>a+b.read,0) + '<span class="unit">页</span>';
+    const list = $('bookList');
+    if (!DB.data.books.length) {
+      list.innerHTML = '<div class="card"><div class="empty">还没有添加书籍</div></div>';
+      return;
+    }
+    list.innerHTML = DB.data.books.map(b => {
+      const pct = b.pages ? Math.round(b.read/b.pages*100) : 0;
+      const done = b.pages && b.read >= b.pages;
+      return `<div class="book-item">
+        <div class="b-head">
+          <div>
+            <div class="b-title">${done?'✅ ':''}${escapeHtml(b.title)}</div>
+            <div class="b-author">${escapeHtml(b.author||'未知作者')} · 共${b.pages}页</div>
+          </div>
+          <button class="btn sec small" onclick="Book.del('${b.id}')">删</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <div style="flex:1"><input class="input" type="number" min="0" max="${b.pages}" value="${b.read}" onchange="Book.update('${b.id}','read',this.value)" style="padding:5px 8px;font-size:13px"></div>
+          <span class="pill">${pct}%</span>
+        </div>
+        <div class="book-progress"><div class="fill" style="width:${pct}%"></div></div>
+        <textarea class="input" placeholder="读书笔记..." onchange="Book.update('${b.id}','note',this.value)" style="margin-top:8px;min-height:50px;font-size:13px">${escapeHtml(b.note||'')}</textarea>
+      </div>`;
+    }).join('');
+  }
+};
+
+/* =================================================================
+   6. Travel 旅行计划
+   ================================================================= */
+const Travel = {
+  add() {
+    const dest = $('travelDest').value.trim();
+    if (!dest) { toast('请输入目的地'); return; }
+    DB.data.travels.push({
+      id: DB.uid(),
+      dest,
+      date: $('travelDate').value || todayStr(),
+      itinerary: [],
+      pack: []
+    });
+    $('travelDest').value = '';
+    $('travelDate').value = '';
+    DB.save();
+    this.render();
+    toast('旅行计划已创建');
+  },
+  del(id) {
+    DB.data.travels = DB.data.travels.filter(x => x.id !== id);
+    DB.save(); this.render();
+  },
+  addItin(id) {
+    const val = prompt('请输入行程安排（如：下午2点 参观清水寺）');
+    if (!val) return;
+    const t = DB.data.travels.find(x => x.id === id);
+    if (t) { t.itinerary.push({ text: val, done: false }); DB.save(); this.render(); }
+  },
+  addPack(id) {
+    const val = prompt('请输入打包物品名称');
+    if (!val) return;
+    const t = DB.data.travels.find(x => x.id === id);
+    if (t) { t.pack.push({ name: val, done: false }); DB.save(); this.render(); }
+  },
+  togglePack(travelId, idx) {
+    const t = DB.data.travels.find(x => x.id === travelId);
+    if (t && t.pack[idx]) { t.pack[idx].done = !t.pack[idx].done; DB.save(); this.render(); }
+  },
+  delPack(travelId, idx) {
+    const t = DB.data.travels.find(x => x.id === travelId);
+    if (t) { t.pack.splice(idx,1); DB.save(); this.render(); }
+  },
+  delItin(travelId, idx) {
+    const t = DB.data.travels.find(x => x.id === travelId);
+    if (t) { t.itinerary.splice(idx,1); DB.save(); this.render(); }
+  },
+  render() {
+    const list = $('travelList');
+    if (!DB.data.travels.length) {
+      list.innerHTML = '<div class="card"><div class="empty">还没有旅行计划</div></div>';
+      return;
+    }
+    list.innerHTML = DB.data.travels.map(t => `
+      <div class="card">
+        <div class="b-head" style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:18px;font-weight:700">✈️ ${escapeHtml(t.dest)}</div>
+            <div style="font-size:13px;color:var(--text-2)">${fmtFull(t.date)}</div>
+          </div>
+          <button class="btn sec small" onclick="Travel.del('${t.id}')">删除</button>
+        </div>
+        <div class="grid-2" style="margin-top:14px">
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px">📍 行程安排</div>
+            ${t.itinerary.map((it,i) => `<div class="itinerary-item">${escapeHtml(it.text)} <span style="float:right;cursor:pointer;color:var(--text-3)" onclick="Travel.delItin('${t.id}',${i})">×</span></div>`).join('') || '<div class="empty" style="padding:8px">无</div>'}
+            <button class="btn sec small" style="margin-top:6px" onclick="Travel.addItin('${t.id}')">+ 添加行程</button>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px">🎒 打包清单 (${t.pack.filter(p=>p.done).length}/${t.pack.length})</div>
+            ${t.pack.map((p,i) => `<div class="pack-item ${p.done?'done':''}">
+              <div class="checkbox ${p.done?'checked':''}" onclick="Travel.togglePack('${t.id}',${i})"></div>
+              <div class="pack-name" style="flex:1">${escapeHtml(p.name)}</div>
+              <span style="cursor:pointer;color:var(--text-3)" onclick="Travel.delPack('${t.id}',${i})">×</span>
+            </div>`).join('') || '<div class="empty" style="padding:8px">无</div>'}
+            <button class="btn sec small" style="margin-top:6px" onclick="Travel.addPack('${t.id}')">+ 添加物品</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+};
+
+/* =================================================================
+   7. English 英语学习
+   ================================================================= */
+const English = {
+  idx: 0,
+  flipped: false,
+  add() {
+    const en = $('wEn').value.trim();
+    const phon = $('wPhon').value.trim();
+    const zh = $('wZh').value.trim();
+    if (!en || !zh) { toast('请输入英文和中文释义'); return; }
+    if (DB.data.english.words.some(w => w.en.toLowerCase() === en.toLowerCase())) {
+      toast('该单词已存在'); return;
+    }
+    DB.data.english.words.push({
+      id: DB.uid(), en, phon, zh, known: false,
+      addDate: todayStr()
+    });
+    $('wEn').value = ''; $('wPhon').value = ''; $('wZh').value = '';
+    DB.save();
+    this.render();
+    toast('单词已添加');
+  },
+  setGoal() {
+    const g = parseInt($('wGoal').value);
+    if (g > 0) {
+      DB.data.english.goal = g;
+      DB.save();
+      this.render();
+      toast('每日目标已设置为 ' + g);
+    }
+  },
+  flip() { this.flipped = !this.flipped; this.renderCard(); },
+  next() { if (this.idx < DB.data.english.words.length - 1) { this.idx++; this.flipped = false; this.renderCard(); } },
+  prev() { if (this.idx > 0) { this.idx--; this.flipped = false; this.renderCard(); } },
+  markKnown() {
+    const w = DB.data.english.words[this.idx];
+    if (w) { w.known = !w.known; DB.save(); this.render(); toast(w.known ? '已标记为已掌握' : '已取消标记'); }
+  },
+  del(id) {
+    DB.data.english.words = DB.data.english.words.filter(w => w.id !== id);
+    if (this.idx >= DB.data.english.words.length) this.idx = Math.max(0, this.idx - 1);
+    DB.save(); this.render();
+  },
+  renderCard() {
+    const card = $('wordCard');
+    const words = DB.data.english.words;
+    if (!words.length) {
+      $('wcEn').textContent = '— 暂无单词 —';
+      $('wcPhon').textContent = '';
+      $('wcZh').textContent = '';
+      $('wcHint').textContent = '点击卡片查看释义';
+      card.classList.remove('flipped');
+      return;
+    }
+    const w = words[Math.min(this.idx, words.length-1)];
+    $('wcEn').textContent = w.en;
+    $('wcPhon').textContent = w.phon || '';
+    $('wcZh').textContent = w.zh;
+    $('wcHint').textContent = (this.flipped ? '点击返回' : '点击查看释义') + ` · ${this.idx+1}/${words.length}` + (w.known ? ' · ✓已掌握' : '');
+    card.classList.toggle('flipped', this.flipped);
+  },
+  render() {
+    const words = DB.data.english.words;
+    $('eTotal').textContent = words.length;
+    $('eToday').textContent = words.filter(w => w.addDate === todayStr()).length;
+    $('eReview').textContent = words.filter(w => !w.known).length;
+    $('eGoal').textContent = DB.data.english.goal || 10;
+    $('wGoal').value = DB.data.english.goal || 10;
+    this.renderCard();
+    // list
+    const list = $('wordList');
+    if (!words.length) list.innerHTML = '<div class="empty">还没有单词</div>';
+    else list.innerHTML = words.slice().reverse().slice(0,20).map(w => `
+      <div class="word-list-item">
+        <div>
+          <span style="font-weight:600">${escapeHtml(w.en)}</span>
+          <span style="font-size:12px;color:var(--text-2);margin-left:6px">${escapeHtml(w.phon||'')}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:var(--blue)">${escapeHtml(w.zh)}</span>
+          ${w.known?'<span style="color:var(--green)">✓</span>':''}
+          <span style="cursor:pointer;color:var(--text-3)" onclick="English.del('${w.id}')">×</span>
+        </div>
+      </div>`).join('');
+    // chart
+    const wDates = weekDates();
+    const data = wDates.map(d => words.filter(w => w.addDate === d).length);
+    if (this.chart) this.chart.destroy();
+    const ctx = $('engChart').getContext('2d');
+    this.chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['一','二','三','四','五','六','日'],
+        datasets: [{
+          label: '学习单词数',
+          data,
+          backgroundColor: '#5856d6',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+};
+
+/* =================================================================
+   AI 智能识别浮窗
+   ================================================================= */
+const AI = {
+  open: false,
+  toggle() {
+    this.open = !this.open;
+    $('aiPanel').classList.toggle('open', this.open);
+    if (this.open) setTimeout(()=>$('aiInput').focus(), 100);
+  },
+  fill(text) { $('aiInput').value = text; $('aiInput').focus(); },
+  parse() {
+    const text = $('aiInput').value.trim();
+    if (!text) { toast('请输入内容'); return; }
+    const result = this.recognize(text);
+    if (!result) { toast('未识别出有效信息'); return; }
+    // 执行
+    switch(result.module) {
+      case 'todo': DB.data.todos.push({id:DB.uid(), text:result.text, pri:'mid', done:false, date:todayStr()}); break;
+      case 'money':
+        DB.data.money.push({id:DB.uid(), type:result.type, cat:result.cat, amount:result.amount, note:result.note||'', date:todayStr()});
+        break;
+      case 'sport':
+        DB.data.sports.push({id:DB.uid(), sport:result.sport, dur:result.dur||0, cal:result.cal||0, date:todayStr()});
+        break;
+      case 'mood':
+        DB.data.moods = DB.data.moods.filter(m => m.date !== todayStr());
+        DB.data.moods.push({id:DB.uid(), mood:result.mood, text:result.text||'', date:todayStr()});
+        break;
+      case 'book':
+        if (result.action === 'progress') {
+          const b = DB.data.books.find(x => x.title.includes(result.title) || result.title.includes(x.title));
+          if (b) b.read = Math.min((b.read||0) + result.pages, b.pages);
+          else { toast('未找到该书：'+result.title); return; }
+        }
+        break;
+      case 'english':
+        if (!DB.data.english.words.some(w => w.en.toLowerCase() === result.en.toLowerCase())) {
+          DB.data.english.words.push({id:DB.uid(), en:result.en, phon:result.phon||'', zh:result.zh, known:false, addDate:todayStr()});
+        }
+        break;
+      case 'travel':
+        DB.data.travels.push({id:DB.uid(), dest:result.dest, date:todayStr(), itinerary:[], pack:[]});
+        break;
+    }
+    DB.save();
+    $('aiInput').value = '';
+    this.toggle();
+    // 跳转到对应模块
+    switchPage(result.module);
+    toast('✅ 已识别并写入：' + this.moduleName(result.module));
+  },
+  moduleName(m) {
+    return {todo:'每日计划', money:'记账本', sport:'运动打卡', mood:'心情日记', book:'读书', english:'英语学习', travel:'旅行计划'}[m] || m;
+  },
+  recognize(text) {
+    // 1) 运动：跑步/游泳/健身/骑行/瑜伽/篮球/跳绳/散步 + 时长/卡路里
+    const sportNames = ['跑步','游泳','健身','骑行','瑜伽','篮球','跳绳','散步'];
+    const sportMatch = sportNames.find(s => text.includes(s));
+    if (sportMatch) {
+      const dur = (text.match(/(\d+)\s*(分钟|分|min)/) || [])[1];
+      const cal = (text.match(/(\d+)\s*(千卡|大卡|卡|kcal|cal)/i) || [])[1];
+      return { module:'sport', sport: sportMatch, dur: dur?parseInt(dur):0, cal: cal?parseInt(cal):0 };
+    }
+    // 2) 记账：花了/支出/收入/工资 + 金额 + 分类
+    const amountMatch = text.match(/(\d+(\.\d+)?)\s*(块|元|￥|人民币)?/);
+    const isIncome = /收入|工资|到账|赚|理财收益/.test(text);
+    if (amountMatch && (/花|买|消费|支出|吃|午餐|晚餐|早餐|打车|地铁|房|挂号|药|工资|收入|到账|赚/.test(text) || isIncome)) {
+      const amount = parseFloat(amountMatch[1]);
+      // 分类识别
+      let cat = '其他';
+      if (/餐|吃|饭|早|午|晚|食|外卖|咖啡|奶茶/.test(text)) cat = '餐饮';
+      else if (/地铁|打车|出租|公交|高铁|火车|飞机|加油|停车/.test(text)) cat = '交通';
+      else if (/买|购|超市|衣服|鞋|电子|数码/.test(text)) cat = '购物';
+      else if (/电影|游戏|娱乐|门票|演唱会|旅游|出游/.test(text)) cat = '娱乐';
+      else if (/房|租|物业|水电|燃气/.test(text)) cat = '住房';
+      else if (/医|药|挂号|看病|医院/.test(text)) cat = '医疗';
+      else if (/书|课|学|培训|教育|学费/.test(text)) cat = '教育';
+      else if (/理财|基金|股票|利息|收益/.test(text)) cat = '理财';
+      else if (/工资|薪水/.test(text)) cat = '工资';
+      return { module:'money', type: isIncome ? 'in' : 'out', cat, amount, note: text };
+    }
+    // 3) 心情
+    const moodMap = [
+      { keys:['开心','高兴','快乐','不错','很好','棒','开心'], mood:'😊' },
+      { keys:['一般','还行','凑合','平淡'], mood:'😐' },
+      { keys:['难过','低落','失落','沮丧','郁闷','emo'], mood:'😔' },
+      { keys:['生气','愤怒','气','烦','抓狂','讨厌'], mood:'😡' },
+      { keys:['累','困','疲惫','乏力','想睡','犯困'], mood:'😴' },
+      { keys:['委屈','想哭','难过哭','心酸','舍不得'], mood:'🥺' }
+    ];
+    for (const m of moodMap) {
+      if (m.keys.some(k => text.includes(k))) {
+        return { module:'mood', mood: m.mood, text };
+      }
+    }
+    // 4) 读书：读《xxx》/读书 + 页数
+    if (/读|看书|阅读/.test(text)) {
+      const bookMatch = text.match(/《(.+?)》/) || text.match(/读(.+?)(\d+|的)/);
+      const pagesMatch = text.match(/(\d+)\s*页/);
+      if (bookMatch && pagesMatch) {
+        return { module:'book', action:'progress', title: bookMatch[1], pages: parseInt(pagesMatch[1]) };
+      }
+    }
+    // 5) 英语：单词 + 释义（如 "abandon 放弃" "/əˈbændən/ 放弃"）
+    //    匹配模式：英文单词(2位以上) + 可选音标 + 中文释义
+    const phonMatch = text.match(/\/[^/]{2,}\//);
+    // 去掉音标后再找英文+中文
+    const textNoPhon = text.replace(/\/[^/]+\//, ' ');
+    const enZhMatch = textNoPhon.match(/\b([a-zA-Z]{2,})\b[\s,，、]*([\u4e00-\u9fa5]+)/);
+    if (enZhMatch) {
+      const en = enZhMatch[1].toLowerCase();
+      // 排除被当作"动词"的英文（少见，主要防误判）
+      const verbBlacklist = ['abandon']; // abandon 本身就是单词，不排除
+      // 提取中文释义：取英文词之后的所有中文片段
+      const zhFull = (textNoPhon.slice(enZhMatch.index + enZhMatch[0].indexOf(enZhMatch[2]))
+        .match(/[\u4e00-\u9fa5，、；（）\s]+/) || [''])[0].trim();
+      // 去掉常见引导词
+      const zh = zhFull.replace(/^(的|了|是)/g, '').trim() || enZhMatch[2];
+      if (en && zh && en.length >= 2) {
+        return { module:'english', en, phon: phonMatch ? phonMatch[0] : '', zh };
+      }
+    }
+    // 6) 旅行：去xxx/旅行/旅游
+    if (/旅行|旅游|出游|去.*玩/.test(text)) {
+      const destMatch = text.match(/去(.+?)(旅行|旅游|玩|出差)/) || text.match(/(.+?)(旅行|旅游)/);
+      if (destMatch) {
+        return { module:'travel', dest: destMatch[1].trim() };
+      }
+    }
+    // 7) 默认作为待办
+    return { module:'todo', text };
+  }
+};
+
+/* =================================================================
+   Weekly Analysis 周度数据分析
+   ================================================================= */
+function showWeekly() {
+  const wDates = weekDates();
+  const d = DB.data;
+  // 1. todo
+  const wTodos = d.todos.filter(t => wDates.includes(t.date));
+  const todoDone = wTodos.filter(t => t.done).length;
+  const todoRate = wTodos.length ? Math.round(todoDone/wTodos.length*100) : 0;
+  // 2. money
+  const wMoney = d.money.filter(m => wDates.includes(m.date));
+  const wInc = wMoney.filter(m=>m.type==='in').reduce((a,b)=>a+b.amount,0);
+  const wExp = wMoney.filter(m=>m.type==='out').reduce((a,b)=>a+b.amount,0);
+  // 3. sport
+  const wSports = d.sports.filter(s => wDates.includes(s.date));
+  const wCal = wSports.reduce((a,b)=>a+b.cal,0);
+  const wDur = wSports.reduce((a,b)=>a+b.dur,0);
+  // 4. mood
+  const wMoods = d.moods.filter(m => wDates.includes(m.date));
+  const moodDist = {};
+  wMoods.forEach(m => moodDist[m.mood] = (moodDist[m.mood]||0) + 1);
+  const topMood = Object.entries(moodDist).sort((a,b)=>b[1]-a[1])[0];
+  // 5. book
+  const wBooks = d.books.filter(b => true);
+  const bReading = wBooks.filter(b => b.read < b.pages).length;
+  const bDone = wBooks.filter(b => b.pages && b.read >= b.pages).length;
+  // 6. travel
+  const wTravels = d.travels.length;
+  // 7. english
+  const wWords = d.english.words.filter(w => wDates.includes(w.addDate));
+  const engGoal = d.english.goal || 10;
+  const eKnown = d.english.words.filter(w => w.known).length;
+
+  // AI 洞察
+  const insights = [];
+  if (todoRate >= 80) insights.push(`✅ 本周待办完成率 ${todoRate}%，执行力很强，继续保持！`);
+  else if (todoRate < 40 && wTodos.length > 0) insights.push(`⚠️ 待办完成率仅 ${todoRate}%，建议拆分大任务、聚焦每日最重要的 3 件事。`);
+  else if (wTodos.length === 0) insights.push('📝 本周还没有添加待办事项，试试每天早上规划 3-5 个小目标。');
+  else insights.push(`📋 待办完成率 ${todoRate}%，还有提升空间，可以减少任务数量、提高质量。`);
+
+  if (wExp > wInc) insights.push(`💸 本周支出 ¥${wExp.toFixed(0)} 超过收入 ¥${wInc.toFixed(0)}，留意一下餐饮和购物的占比。`);
+  else if (wInc > 0) insights.push(`💰 本周结余 ¥${(wInc-wExp).toFixed(0)}，财务状况良好，可考虑增加理财投入。`);
+
+  if (wSports.length >= 4) insights.push(`🏃 本周运动 ${wSports.length} 次，消耗 ${wCal} 千卡，运动习惯很棒！`);
+  else if (wSports.length > 0) insights.push(`🏃 本周运动 ${wSports.length} 次，建议每周 3-5 次，每次 30 分钟以上。`);
+  else insights.push(`🚶 本周还没有运动记录，从今天开始第一次打卡吧，哪怕散步 15 分钟也好。`);
+
+  if (topMood) {
+    const moodVal = Mood.moods.find(m => m.key === topMood[0]);
+    insights.push(`${topMood[0]} 本周主导情绪是"${moodVal ? moodVal.name : topMood[0]}"，共 ${topMood[1]} 天。情绪记录帮助你看见自己。`);
+  } else insights.push('😊 本周还没有心情记录，每天花 1 分钟标记心情，长期看会很有价值。');
+
+  if (wWords.length >= engGoal * 5) insights.push(`🔤 本周学习了 ${wWords.length} 个单词，超过目标 ${engGoal}/天，词汇量稳步增长！`);
+  else if (wWords.length > 0) insights.push(`🔤 本周学习 ${wWords.length} 个单词，累计 ${d.english.words.length} 个，坚持就是胜利。`);
+  else insights.push(`🔤 本周还没有背单词，目标 ${engGoal}/天，从最常用的词开始。`);
+
+  const content = `
+    <div class="wa-section">
+      <h4>✅ 每日计划</h4>
+      <div class="wa-grid">
+        <div class="wa-card"><div class="l">本周待办</div><div class="v">${wTodos.length}</div></div>
+        <div class="wa-card"><div class="l">已完成</div><div class="v">${todoDone}</div></div>
+        <div class="wa-card"><div class="l">完成率</div><div class="v">${todoRate}%</div></div>
+      </div>
+    </div>
+    <div class="wa-section">
+      <h4>💰 记账本</h4>
+      <div class="wa-grid">
+        <div class="wa-card"><div class="l">本周收入</div><div class="v">¥${wInc.toFixed(0)}</div></div>
+        <div class="wa-card"><div class="l">本周支出</div><div class="v">¥${wExp.toFixed(0)}</div></div>
+        <div class="wa-card"><div class="l">本周结余</div><div class="v" style="color:${wInc-wExp>=0?'var(--green)':'var(--pink)'}">¥${(wInc-wExp).toFixed(0)}</div></div>
+      </div>
+    </div>
+    <div class="wa-section">
+      <h4>🏃 运动打卡</h4>
+      <div class="wa-grid">
+        <div class="wa-card"><div class="l">本周打卡</div><div class="v">${wSports.length}次</div></div>
+        <div class="wa-card"><div class="l">本周时长</div><div class="v">${wDur}分</div></div>
+        <div class="wa-card"><div class="l">消耗热量</div><div class="v">${wCal}千卡</div></div>
+      </div>
+    </div>
+    <div class="wa-section">
+      <h4>😊 心情日记</h4>
+      <div class="wa-grid">
+        <div class="wa-card"><div class="l">本周记录</div><div class="v">${wMoods.length}天</div></div>
+        <div class="wa-card"><div class="l">主导情绪</div><div class="v" style="font-size:24px">${topMood ? topMood[0] : '—'}</div></div>
+      </div>
+    </div>
+    <div class="wa-section">
+      <h4>📚 读书收获</h4>
+      <div class="wa-grid">
+        <div class="wa-card"><div class="l">在阅读</div><div class="v">${bReading}本</div></div>
+        <div class="wa-card"><div class="l">已读完</div><div class="v">${bDone}本</div></div>
+      </div>
+    </div>
+    <div class="wa-section">
+      <h4>✈️ 旅行计划</h4>
+      <div class="wa-grid">
+        <div class="wa-card"><div class="l">总计划</div><div class="v">${wTravels}个</div></div>
+      </div>
+    </div>
+    <div class="wa-section">
+      <h4>🔤 英语学习</h4>
+      <div class="wa-grid">
+        <div class="wa-card"><div class="l">本周新增</div><div class="v">${wWords.length}词</div></div>
+        <div class="wa-card"><div class="l">累计词汇</div><div class="v">${d.english.words.length}</div></div>
+        <div class="wa-card"><div class="l">已掌握</div><div class="v">${eKnown}</div></div>
+      </div>
+    </div>
+    <div class="insight-box">
+      <h4>🤖 AI 洞察建议</h4>
+      ${insights.map(i => `<p>${i}</p>`).join('')}
+    </div>
+  `;
+  $('weeklyContent').innerHTML = content;
+  openModal('weeklyMask');
+}
+
+/* =================================================================
+   导出/导入
+   ================================================================= */
+function exportData() {
+  const data = JSON.stringify(DB.data, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `life-dashboard-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('已导出备份文件');
+}
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.todos || !data.money) throw new Error('格式不对');
+      DB.data = Object.assign({
+        todos:[], money:[], sports:[], moods:[], books:[], travels:[], english:{words:[],goal:10}, meta:{}
+      }, data);
+      DB.save();
+      // 刷新当前页
+      const active = document.querySelector('.nav-item.active');
+      if (active) switchPage(active.dataset.page);
+      toast('已成功导入备份');
+    } catch(err) {
+      toast('导入失败：文件格式不正确');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ---------- helpers ----------
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+// ---------- 事件绑定 ----------
+$('btnWeekly').addEventListener('click', showWeekly);
+$('btnExport').addEventListener('click', exportData);
+$('btnImport').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', e => {
+  if (e.target.files[0]) importData(e.target.files[0]);
+  e.target.value = '';
+});
+
+// 点击外部关闭 AI 面板
+document.addEventListener('click', e => {
+  if (AI.open && !$('aiPanel').contains(e.target) && !e.target.closest('.ai-fab')) {
+    AI.toggle();
+  }
+});
+// 点击 modal 遮罩关闭
+document.querySelectorAll('.modal-mask').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ---------- 初始渲染 ----------
+Todo.render();
+console.log('✅ 人生管理计划工作台 已启动');
+</script>
+</body>
+</html>
